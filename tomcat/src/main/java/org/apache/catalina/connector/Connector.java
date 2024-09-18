@@ -6,6 +6,9 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import org.apache.coyote.http11.Http11Processor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,14 +19,32 @@ public class Connector implements Runnable {
 
     private static final int DEFAULT_PORT = 8080;
     private static final int DEFAULT_ACCEPT_COUNT = 100;
-    private static final int DEFAULT_MAX_THREADS = 200;
+    private static final int DEFAULT_CORE_POOL_SIZE = 0;
+    private static final long DEFAULT_KEEP_ALIVE_TIME = 60L;
+    private static final int DEFAULT_MAX_THREADS = 250;
 
     private final ServerSocket serverSocket;
     private final ExecutorService threadPool;
     private boolean stopped;
 
     public Connector() {
-        this(DEFAULT_PORT, DEFAULT_ACCEPT_COUNT, DEFAULT_MAX_THREADS);
+        this(DEFAULT_PORT, DEFAULT_ACCEPT_COUNT, DEFAULT_CORE_POOL_SIZE, DEFAULT_KEEP_ALIVE_TIME, DEFAULT_MAX_THREADS);
+    }
+
+    public Connector(final int port,
+                     final int acceptCount,
+                     final int corePoolSize,
+                     final long keepAliveTime,
+                     final int maxThreads) {
+        this.serverSocket = createServerSocket(port, acceptCount);
+        this.threadPool = new ThreadPoolExecutor(
+                corePoolSize,
+                maxThreads,
+                keepAliveTime,
+                TimeUnit.SECONDS,
+                new SynchronousQueue<>()
+        );
+        this.stopped = false;
     }
 
     public Connector(final int port, final int acceptCount, final int maxThreads) {
@@ -96,5 +117,9 @@ public class Connector implements Runnable {
 
     private int checkAcceptCount(final int acceptCount) {
         return Math.max(acceptCount, DEFAULT_ACCEPT_COUNT);
+    }
+
+    public ExecutorService getThreadPool() {
+        return threadPool;
     }
 }
